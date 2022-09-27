@@ -1,10 +1,53 @@
+# on:
+#   push:
+#     branches:
+#       - main
+
+# jobs:
+#   print_hello:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - run: echo "Hello World!"
+#########################################
+
 on:
   push:
     branches:
       - main
-
+permissions:
+      id-token: write
+      contents: read
 jobs:
-  print_hello:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Hello World!"
+      - name: Clone repository
+        uses: actions/checkout@v2
+      - name: Use Node.js 14.18.1
+        uses: actions/setup-node@v1
+        with:
+          node-version: 14.18.1
+      - name: Install dependencies
+        run: npm install
+      - name: Generate build
+        run: npm run build
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      # Download previously shared build
+      - name: Get artifact
+        uses: actions/download-artifact@v1
+        with:
+          name: react-build
+      # Set the credentials from repository settings/secrets
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: arn:aws:iam::485472544420:role/github-action-role
+          aws-region: ap-south-1
+          
+      - name: Deploy to S3
+        run: aws s3 sync . s3://git-test-bucket-1
+        working-directory: react-build
